@@ -6,6 +6,7 @@ import SearchPage from './components/SearchPage';
 import CartPage from './components/CartPage';
 import CheckoutPage from './components/CheckoutPage';
 import ConfirmationPage from './components/ConfirmationPage';
+import Footer from './components/Footer';
 import './App.css';
 
 function App() {
@@ -66,7 +67,12 @@ function App() {
 
   return (
     <CartProvider>
-      {renderPage()}
+      <div className="min-h-screen flex flex-col">
+        <main className="flex-1">
+          {renderPage()}
+        </main>
+        <Footer />
+      </div>
     </CartProvider>
   );
 }

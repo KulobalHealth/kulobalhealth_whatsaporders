@@ -1,12 +1,13 @@
-import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, ArrowRight, Pill } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, ArrowRight, Pill, FileImage, X, CheckCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 const CartPage = ({ onNext, onBack }) => {
-  const { cartItems, updateQuantity, removeFromCart, getCartTotal } = useCart();
+  const { cartItems, updateQuantity, removeFromCart, getCartTotal, prescription, clearPrescription } = useCart();
 
   const subtotal = getCartTotal();
 
-  if (cartItems.length === 0) {
+  // Show empty state only if no cart items AND no prescription
+  if (cartItems.length === 0 && !prescription) {
     return (
       <div className="min-vh-100 d-flex align-items-center justify-content-center p-3">
         <div className="text-center" style={{ maxWidth: '400px' }}>
@@ -17,7 +18,7 @@ const CartPage = ({ onNext, onBack }) => {
             <ShoppingBag size={48} className="text-muted" />
           </div>
           <h2 className="h3 fw-bold mb-2">Your cart is empty</h2>
-          <p className="text-muted mb-4">Add some medications to get started</p>
+          <p className="text-muted mb-4">Add some medications or upload a prescription to get started</p>
           <button 
             className="btn btn-lg fw-semibold"
             style={{ background: '#00B17B', color: 'white' }}
@@ -63,6 +64,46 @@ const CartPage = ({ onNext, onBack }) => {
           {/* Cart Items */}
           <div className="col-12 col-lg-8">
             <div className="d-flex flex-column gap-3">
+              {/* Prescription Card */}
+              {prescription && (
+                <div className="card border-success" style={{ borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                  <div className="card-body p-3">
+                    <div className="d-flex gap-3">
+                      <div className="position-relative flex-shrink-0">
+                        <img
+                          src={prescription.base64}
+                          alt="Prescription"
+                          className="rounded-3"
+                          style={{ width: '64px', height: '64px', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <div className="d-flex align-items-center gap-2 mb-1">
+                              <FileImage size={16} style={{ color: '#00B17B' }} />
+                              <h6 className="fw-semibold mb-0">Prescription Image</h6>
+                            </div>
+                            <small className="text-muted">{prescription.fileName}</small>
+                          </div>
+                          <button
+                            className="btn btn-sm text-danger p-1"
+                            onClick={clearPrescription}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                        <div className="d-flex align-items-center gap-2 mt-2">
+                          <CheckCircle size={16} style={{ color: '#00B17B' }} />
+                          <span className="small" style={{ color: '#00B17B' }}>Ready for pharmacist review</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cart Items */}
               {cartItems.map((item) => (
                 <div key={item.id} className="card border-0" style={{ borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                   <div className="card-body p-3">
@@ -134,15 +175,33 @@ const CartPage = ({ onNext, onBack }) => {
               <div className="card-body p-3 p-md-4">
                 <h5 className="fw-bold mb-3">Order Summary</h5>
                 <div className="d-flex flex-column gap-2">
-                  <div className="d-flex justify-content-between">
-                    <span className="text-muted">Subtotal</span>
-                    <span className="fw-semibold">₵{subtotal.toFixed(2)}</span>
-                  </div>
+                  {prescription && (
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="text-muted d-flex align-items-center gap-2">
+                        <FileImage size={16} />
+                        Prescription
+                      </span>
+                      <span className="badge bg-success">Attached</span>
+                    </div>
+                  )}
+                  {cartItems.length > 0 && (
+                    <div className="d-flex justify-content-between">
+                      <span className="text-muted">Subtotal ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})</span>
+                      <span className="fw-semibold">₵{subtotal.toFixed(2)}</span>
+                    </div>
+                  )}
                   <hr className="my-2" />
                   <div className="d-flex justify-content-between">
                     <span className="fw-bold">Total</span>
-                    <span className="fw-bold" style={{ color: '#00B17B' }}>₵{subtotal.toFixed(2)}</span>
+                    <span className="fw-bold" style={{ color: '#00B17B' }}>
+                      {cartItems.length > 0 ? `₵${subtotal.toFixed(2)}` : 'TBD'}
+                    </span>
                   </div>
+                  {prescription && cartItems.length === 0 && (
+                    <p className="text-muted small mb-0 mt-2">
+                      Price will be confirmed by the pharmacist after reviewing your prescription.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="card-footer bg-transparent border-0 p-3 p-md-4 pt-0">

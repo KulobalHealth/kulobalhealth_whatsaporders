@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Upload, ShoppingCart, Package, ArrowLeft, Plus, Check, Pill, Loader2 } from 'lucide-react';
+import { Search, Upload, ShoppingCart, Package, ArrowLeft, ArrowRight, Plus, Check, Pill, Loader2, X, Camera, Image, FileImage, CheckCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { storeService } from '../api';
 
@@ -20,7 +20,6 @@ const useDebounce = (value, delay) => {
 
 const SearchPage = ({ onNext, onBack }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [uploadedImage, setUploadedImage] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [searchResults, setSearchResults] = useState([]);
@@ -28,7 +27,9 @@ const SearchPage = ({ onNext, onBack }) => {
   const [error, setError] = useState(null);
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
-  const { addToCart, getCartCount, cartItems } = useCart();
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const { addToCart, getCartCount, cartItems, prescription, setPrescriptionImage, clearPrescription } = useCart();
 
   // Debounce search query (300ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -128,17 +129,84 @@ const SearchPage = ({ onNext, onBack }) => {
     }
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+  // Compress image to reduce file size for API submission
+  const compressImage = (file, maxWidth = 1024, quality = 0.7) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result);
-        setSearchQuery('Paracetamol');
-        setIsDropdownOpen(true);
+      reader.onload = (e) => {
+        const img = document.createElement('img');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Scale down if larger than maxWidth
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to base64 with compression
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedBase64);
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB before compression
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      alert('Please upload an image file (JPG, PNG, WebP)');
+      return;
     }
+    
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    try {
+      // Compress the image
+      const compressedBase64 = await compressImage(file, 1024, 0.7);
+      const compressedSize = Math.round((compressedBase64.length * 3) / 4); // Approximate size
+      
+      setPrescriptionImage({
+        file: file,
+        base64: compressedBase64,
+        fileName: file.name,
+        fileType: 'image/jpeg',
+        fileSize: compressedSize
+      });
+      
+      console.log(`Image compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(compressedSize / 1024).toFixed(1)}KB`);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      alert('Failed to process image. Please try again.');
+    }
+    
+    // Reset file input
+    if (e.target) e.target.value = '';
+  };
+
+  const handleRemovePrescription = () => {
+    clearPrescription();
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const handleSelectMedication = (medication) => {
@@ -153,7 +221,7 @@ const SearchPage = ({ onNext, onBack }) => {
   };
 
   return (
-    <div className="min-vh-100 pb-5" style={{ paddingBottom: getCartCount() > 0 ? '120px' : '2rem' }}>
+    <div className="min-vh-100 pb-5" style={{ paddingBottom: (getCartCount() > 0 || prescription) ? '120px' : '2rem' }}>
       <div className="container py-3 py-md-4" style={{ maxWidth: '1200px' }}>
         {/* Progress Indicator */}
         <div className="mb-4">
@@ -359,39 +427,104 @@ const SearchPage = ({ onNext, onBack }) => {
               </div>
             </div>
             <div className="col-12 col-md-auto">
-              <label htmlFor="image-upload" className="w-100">
-                <div 
-                  className="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 py-2"
-                  style={{ borderColor: '#00B17B', color: '#00B17B', height: '48px' }}
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn d-flex align-items-center justify-content-center gap-2 flex-grow-1"
+                  style={{ 
+                    borderColor: '#00B17B', 
+                    color: '#00B17B', 
+                    height: '48px',
+                    background: 'white',
+                    border: '1px solid #00B17B'
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload size={20} />
-                  Upload Photo
-                </div>
-              </label>
+                  <Image size={20} />
+                  <span className="d-none d-sm-inline">Upload</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn d-flex align-items-center justify-content-center gap-2"
+                  style={{ 
+                    background: '#00B17B',
+                    color: 'white', 
+                    height: '48px',
+                  }}
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  <Camera size={20} />
+                  <span className="d-none d-sm-inline">Camera</span>
+                </button>
+              </div>
               <input
-                id="image-upload"
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/jpg,image/webp"
+                onChange={handleImageUpload}
+                className="d-none"
+              />
+              <input
+                ref={cameraInputRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handleImageUpload}
                 className="d-none"
               />
             </div>
           </div>
 
-          {uploadedImage && (
-            <div className="card mt-3">
+          {/* Prescription Image Preview */}
+          {prescription && (
+            <div className="card mt-3 border-success" style={{ borderRadius: '0.75rem' }}>
               <div className="card-body p-3">
                 <div className="d-flex align-items-center gap-3">
-                  <img
-                    src={uploadedImage}
-                    alt="Uploaded prescription"
-                    className="rounded"
-                    style={{ width: '80px', height: '80px', objectFit: 'cover' }}
-                  />
-                  <div>
-                    <p className="fw-semibold mb-1">Image uploaded successfully</p>
-                    <p className="text-muted small mb-0">Analyzing medication...</p>
+                  <div className="position-relative flex-shrink-0">
+                    <img
+                      src={prescription.base64}
+                      alt="Uploaded prescription"
+                      className="rounded"
+                      style={{ width: '80px', height: '80px', objectFit: 'cover' }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm rounded-circle position-absolute d-flex align-items-center justify-content-center"
+                      style={{ 
+                        top: '-8px', 
+                        right: '-8px', 
+                        width: '24px', 
+                        height: '24px', 
+                        padding: 0 
+                      }}
+                      onClick={handleRemovePrescription}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
+                  <div className="flex-grow-1">
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <CheckCircle size={18} style={{ color: '#00B17B' }} />
+                      <p className="fw-semibold mb-0" style={{ color: '#00B17B' }}>Prescription uploaded</p>
+                    </div>
+                    <p className="text-muted small mb-0">{prescription.fileName}</p>
+                    <p className="text-muted small mb-0">{(prescription.fileSize / 1024).toFixed(1)} KB</p>
+                  </div>
+                </div>
+                
+                {/* Continue Button */}
+                <div className="mt-3 pt-3 border-top">
+                  <button
+                    className="btn btn-lg w-100 fw-semibold d-flex align-items-center justify-content-center gap-2"
+                    style={{ background: '#00B17B', color: 'white', borderRadius: '0.75rem' }}
+                    onClick={onNext}
+                  >
+                    Continue to Fill Details
+                    <ArrowRight size={20} />
+                  </button>
+                  <p className="text-muted small text-center mt-2 mb-0">
+                    Or search for more medications below
+                  </p>
                 </div>
               </div>
             </div>
@@ -400,7 +533,7 @@ const SearchPage = ({ onNext, onBack }) => {
       </div>
 
       {/* Cart Summary Footer */}
-      {getCartCount() > 0 && (
+      {(getCartCount() > 0 || prescription) && (
         <div 
           className="fixed-bottom bg-white border-top p-3"
           style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.1)' }}
@@ -412,11 +545,29 @@ const SearchPage = ({ onNext, onBack }) => {
                   className="d-flex align-items-center justify-content-center rounded-circle"
                   style={{ width: '48px', height: '48px', background: '#e6f7f1' }}
                 >
-                  <ShoppingCart style={{ color: '#00B17B' }} size={24} />
+                  {prescription && getCartCount() === 0 ? (
+                    <FileImage style={{ color: '#00B17B' }} size={24} />
+                  ) : (
+                    <ShoppingCart style={{ color: '#00B17B' }} size={24} />
+                  )}
                 </div>
                 <div>
-                  <p className="text-muted small mb-0">Items in cart</p>
-                  <p className="h5 fw-bold mb-0">{getCartCount()} item{getCartCount() !== 1 ? 's' : ''}</p>
+                  {prescription && getCartCount() === 0 ? (
+                    <>
+                      <p className="text-muted small mb-0">Ready to submit</p>
+                      <p className="h5 fw-bold mb-0">Prescription uploaded</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-muted small mb-0">
+                        {prescription ? 'Items + Prescription' : 'Items in cart'}
+                      </p>
+                      <p className="h5 fw-bold mb-0">
+                        {getCartCount()} item{getCartCount() !== 1 ? 's' : ''}
+                        {prescription && ' + Rx'}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
               <button
@@ -424,7 +575,7 @@ const SearchPage = ({ onNext, onBack }) => {
                 style={{ background: '#00B17B', color: 'white', maxWidth: '300px' }}
                 onClick={onNext}
               >
-                Continue to Cart
+                {prescription && getCartCount() === 0 ? 'Continue with Prescription' : 'Continue to Cart'}
                 <ShoppingCart size={20} />
               </button>
             </div>

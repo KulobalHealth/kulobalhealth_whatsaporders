@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { User, Phone, Mail, MapPin, Home, Package, ArrowLeft, CheckCircle, Loader2, MessageCircle, AlertCircle } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Home, Package, ArrowLeft, CheckCircle, Loader2, MessageCircle, AlertCircle, FileImage } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { storeService } from '../api';
 import { STORE_USERNAME } from '../api/config';
 
 const CheckoutPage = ({ onComplete, onBack }) => {
-  const { cartItems, deliveryInfo, updateDeliveryInfo, getCartTotal, clearCart } = useCart();
+  const { cartItems, deliveryInfo, updateDeliveryInfo, getCartTotal, clearCart, prescription, clearPrescription } = useCart();
   const [storeData, setStoreData] = useState(null);
   const [loadingStore, setLoadingStore] = useState(false);
   const [storeError, setStoreError] = useState(null);
@@ -43,37 +43,68 @@ const CheckoutPage = ({ onComplete, onBack }) => {
       // Debug: Log cart items to see what we have
       console.log('Cart items:', JSON.stringify(cartItems, null, 2));
 
+      // Prepare attachment - extract just the base64 data without the data URL prefix
+      let attachmentData = '';
+      if (prescription?.base64) {
+        // The base64 string includes "data:image/jpeg;base64," prefix - keep it as some APIs need it
+        // But if the backend expects raw base64, uncomment the line below:
+        // attachmentData = prescription.base64.split(',')[1] || prescription.base64;
+        attachmentData = prescription.base64;
+      }
+
       // Prepare order data matching the backend API schema
       const orderData = {
         username: STORE_USERNAME,
-        deliveryAddress: '',
+        deliveryAddress: deliveryInfo.deliveryMethod === 'delivery' 
+          ? `${deliveryInfo.address || ''}, ${deliveryInfo.city || ''}`.trim().replace(/^,\s*|,\s*$/g, '') 
+          : '',
         personalData: {
           name: deliveryInfo.fullName,
           Location: deliveryInfo.deliveryMethod === 'delivery' ? 'Home Delivery' : 'Store Pickup',
           contactNumber: deliveryInfo.phone,
           email: deliveryInfo.email
         },
-        attachment: '',
-        imageOnly: false,
-        orders: cartItems.map(item => ({
+        attachment: attachmentData,
+        imageOnly: cartItems.length === 0 && attachmentData ? true : false,
+        orders: cartItems.length > 0 ? cartItems.map(item => ({
           drugId: item.drugId || item.uuid || String(item.id),
           quantity: item.quantity
-        }))
+        })) : []
       };
 
-      console.log('Submitting order data:', JSON.stringify(orderData, null, 2));
+      console.log('Submitting order data:', {
+        ...orderData,
+        attachment: attachmentData ? `[BASE64 IMAGE - ${(attachmentData.length / 1024).toFixed(1)}KB]` : ''
+      });
 
       // Submit order via WhatsApp endpoint
       const response = await storeService.submitWhatsAppOrder(orderData);
       console.log('Order submitted successfully:', response);
       
-      // Clear cart and proceed to confirmation with order data
+      // Clear cart and prescription, then proceed to confirmation with order data
       clearCart();
+      clearPrescription();
       onComplete(response?.data || response);
     } catch (error) {
       console.error('Failed to submit order:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
-      setSubmitError(error.message || 'Failed to submit order. Please try again.');
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Failed to submit order. Please try again.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.status === 500) {
+        errorMessage = 'Server error. Please try again or contact support.';
+      } else if (error.status === 413) {
+        errorMessage = 'Image is too large. Please use a smaller image.';
+      } else if (error.status === 400) {
+        errorMessage = 'Invalid order data. Please check your information.';
+      } else if (error.status === 0) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setSubmitError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -307,6 +338,41 @@ const CheckoutPage = ({ onComplete, onBack }) => {
                 </div>
               )}
             </div>
+
+            <hr className="my-4" />
+
+            {/* Prescription Summary (if uploaded) */}
+            {prescription && (
+              <div className="mb-4">
+                <div className="d-flex align-items-center gap-3 mb-3">
+                  <div className="p-2 rounded-3" style={{ background: '#e6f7f1' }}>
+                    <FileImage style={{ color: '#00B17B' }} size={24} />
+                  </div>
+                  <div>
+                    <h5 className="fw-bold mb-0">Prescription Attached</h5>
+                    <small className="text-muted">Your prescription will be reviewed by the pharmacist</small>
+                  </div>
+                </div>
+
+                <div className="card border-success" style={{ borderRadius: '0.5rem' }}>
+                  <div className="card-body p-3">
+                    <div className="d-flex align-items-center gap-3">
+                      <img
+                        src={prescription.base64}
+                        alt="Prescription"
+                        className="rounded"
+                        style={{ width: '60px', height: '60px', objectFit: 'cover' }}
+                      />
+                      <div className="flex-grow-1">
+                        <p className="fw-medium mb-0">{prescription.fileName}</p>
+                        <small className="text-muted">{(prescription.fileSize / 1024).toFixed(1)} KB</small>
+                      </div>
+                      <CheckCircle size={20} style={{ color: '#00B17B' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Error Message */}
             {submitError && (

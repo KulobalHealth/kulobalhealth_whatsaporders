@@ -12,6 +12,7 @@ export const useCart = () => {
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
+  const [prescription, setPrescription] = useState(null);
   const [deliveryInfo, setDeliveryInfo] = useState({
     fullName: '',
     phone: '',
@@ -69,16 +70,27 @@ export const CartProvider = ({ children }) => {
     setDeliveryInfo(prev => ({ ...prev, ...info }));
   };
 
+  const setPrescriptionImage = (prescriptionData) => {
+    setPrescription(prescriptionData);
+  };
+
+  const clearPrescription = () => {
+    setPrescription(null);
+  };
+
   const value = {
     cartItems,
     deliveryInfo,
+    prescription,
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
     getCartTotal,
     getCartCount,
-    updateDeliveryInfo
+    updateDeliveryInfo,
+    setPrescriptionImage,
+    clearPrescription
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
