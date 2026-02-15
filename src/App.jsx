@@ -4,6 +4,7 @@ import SearchPage from './components/SearchPage';
 import CartPage from './components/CartPage';
 import CheckoutPage from './components/CheckoutPage';
 import ConfirmationPage from './components/ConfirmationPage';
+import CookieBanner from './components/CookieBanner';
 import './App.css';
 
 function App() {
@@ -55,6 +56,7 @@ function App() {
         <main>
           {renderPage()}
         </main>
+        <CookieBanner />
       </div>
     </CartProvider>
   );

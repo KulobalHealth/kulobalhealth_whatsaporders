@@ -237,7 +237,7 @@ const SearchPage = ({ onNext }) => {
 
   return (
     <div className="h-100 pb-3" style={{ paddingBottom: (getCartCount() > 0 || prescription) ? '100px' : '1rem' }}>
-      <div className="container py-3 py-md-4" style={{ maxWidth: '1200px' }}>
+      <div className="container py-5" style={{ maxWidth: '800px', marginTop: '4rem' }}>
         {/* Header / Pharmacy Branding */}
         <div className="text-center mb-4">
           {/* Pharmacy Logo/Icon */}
@@ -288,8 +288,8 @@ const SearchPage = ({ onNext }) => {
 
         {/* Search and Upload Section */}
         <div className="mb-4">
-          <div className="row g-2 g-md-3">
-            <div className="col-12 col-md" ref={searchRef}>
+          <div className="row g-2 g-md-3 flex-nowrap">
+            <div className="col" ref={searchRef}>
               <div className="position-relative">
                 <div className="input-group input-group-lg">
                   <span className="input-group-text bg-white border-end-0">
@@ -456,34 +456,36 @@ const SearchPage = ({ onNext }) => {
                 )}
               </div>
             </div>
-            <div className="col-12 col-md-auto">
+            <div className="col-auto d-flex align-items-center">
               <div className="d-flex gap-2">
                 <button
                   type="button"
-                  className="btn d-flex align-items-center justify-content-center gap-2 flex-grow-1"
+                  className="btn d-flex align-items-center justify-content-center gap-1"
                   style={{ 
                     color: '#00B17B', 
                     height: '48px',
+                    width: '48px',
                     background: '#FFFDFA',
-                    border: 'none'
+                    border: 'none',
+                    padding: 0
                   }}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Image size={20} />
-                  <span className="d-none d-sm-inline">Upload</span>
                 </button>
                 <button
                   type="button"
-                  className="btn d-flex align-items-center justify-content-center gap-2"
+                  className="btn d-flex align-items-center justify-content-center gap-1"
                   style={{ 
                     background: '#00B17B',
                     color: 'white', 
                     height: '48px',
+                    width: '48px',
+                    padding: 0
                   }}
                   onClick={() => cameraInputRef.current?.click()}
                 >
                   <Camera size={20} />
-                  <span className="d-none d-sm-inline">Camera</span>
                 </button>
               </div>
               <input
