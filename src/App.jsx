@@ -1,41 +1,21 @@
 import { useState } from 'react';
 import { CartProvider } from './context/CartContext';
-import WelcomeScreen from './components/WelcomeScreen';
-import ActionSelection from './components/ActionSelection';
 import SearchPage from './components/SearchPage';
 import CartPage from './components/CartPage';
 import CheckoutPage from './components/CheckoutPage';
 import ConfirmationPage from './components/ConfirmationPage';
-import Footer from './components/Footer';
 import './App.css';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('welcome');
+  const [currentPage, setCurrentPage] = useState('search');
   const [orderData, setOrderData] = useState(null);
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'welcome':
-        return <WelcomeScreen onStart={() => setCurrentPage('action')} />;
-      case 'action':
-        return (
-          <ActionSelection
-            onSelectAction={(action) => {
-              if (action === 'order') {
-                setCurrentPage('search');
-              } else {
-                // For pharmacist, could open a modal or redirect
-                alert('Pharmacist chat feature coming soon!');
-              }
-            }}
-            onBack={() => setCurrentPage('welcome')}
-          />
-        );
       case 'search':
         return (
           <SearchPage
             onNext={() => setCurrentPage('cart')}
-            onBack={() => setCurrentPage('action')}
           />
         );
       case 'cart':
@@ -58,20 +38,23 @@ function App() {
       case 'confirmation':
         return <ConfirmationPage orderData={orderData} onReset={() => {
           setOrderData(null);
-          setCurrentPage('welcome');
+          setCurrentPage('search');
         }} />;
       default:
-        return <WelcomeScreen onStart={() => setCurrentPage('action')} />;
+        return (
+          <SearchPage
+            onNext={() => setCurrentPage('cart')}
+          />
+        );
     }
   };
 
   return (
     <CartProvider>
-      <div className="min-h-screen flex flex-col">
-        <main className="flex-1">
+      <div className="h-screen flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-auto">
           {renderPage()}
         </main>
-        <Footer />
       </div>
     </CartProvider>
   );

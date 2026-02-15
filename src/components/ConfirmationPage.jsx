@@ -22,7 +22,7 @@ const ConfirmationPage = ({ orderData, onReset }) => {
   estimatedDate.setDate(estimatedDate.getDate() + (deliveryMethod === 'Store Pickup' ? 1 : 3));
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center p-3 p-md-4">
+    <div className="h-100 d-flex align-items-center justify-content-center p-3 p-md-4">
       <div className="container" style={{ maxWidth: '700px' }}>
         {/* Success Icon */}
         <div className="text-center mb-4">

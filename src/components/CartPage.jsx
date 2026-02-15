@@ -9,7 +9,7 @@ const CartPage = ({ onNext, onBack }) => {
   // Show empty state only if no cart items AND no prescription
   if (cartItems.length === 0 && !prescription) {
     return (
-      <div className="min-vh-100 d-flex align-items-center justify-content-center p-3">
+      <div className="h-100 d-flex align-items-center justify-content-center p-3">
         <div className="text-center" style={{ maxWidth: '400px' }}>
           <div 
             className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-4"
@@ -32,7 +32,7 @@ const CartPage = ({ onNext, onBack }) => {
   }
 
   return (
-    <div className="min-vh-100 pb-4">
+    <div className="h-100 pb-4">
       <div className="container py-3 py-md-4" style={{ maxWidth: '1000px' }}>
         {/* Progress Indicator */}
         <div className="mb-4">

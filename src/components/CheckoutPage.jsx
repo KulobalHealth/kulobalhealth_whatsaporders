@@ -118,7 +118,7 @@ const CheckoutPage = ({ onComplete, onBack }) => {
   };
 
   return (
-    <div className="min-vh-100 pb-4">
+    <div className="h-100 pb-4">
       <div className="container py-3 py-md-4" style={{ maxWidth: '800px' }}>
         {/* Progress Indicator */}
         <div className="mb-4">

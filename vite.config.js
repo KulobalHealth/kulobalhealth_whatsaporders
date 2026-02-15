@@ -10,7 +10,7 @@ export default defineConfig({
     port: 4000,
     strictPort: true,
     proxy: {
-      '/api': {
+      '/api/v1': {
         target: 'https://kulobalhealth-backend-1.onrender.com',
         changeOrigin: true,
         secure: true,

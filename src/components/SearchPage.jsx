@@ -1,97 +1,112 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Upload, ShoppingCart, Package, ArrowLeft, ArrowRight, Plus, Check, Pill, Loader2, X, Camera, Image, FileImage, CheckCircle } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Search, Upload, ShoppingCart, Package, ArrowRight, Plus, Check, Pill, Loader2, X, Camera, Image, FileImage, CheckCircle, MapPin } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { storeService } from '../api';
 
-// Debounce hook
-const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-
-  return debouncedValue;
-};
-
-const SearchPage = ({ onNext, onBack }) => {
+const SearchPage = ({ onNext }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [searchResults, setSearchResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [allInventory, setAllInventory] = useState([]); // Store all inventory items
+  const [loading, setLoading] = useState(true); // Loading state for initial fetch
   const [error, setError] = useState(null);
+  const [storeData, setStoreData] = useState(null);
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const { addToCart, getCartCount, cartItems, prescription, setPrescriptionImage, clearPrescription } = useCart();
 
-  // Debounce search query (300ms delay)
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  // Search inventory when debounced query changes
+  // Fetch store data and all inventory on mount
   useEffect(() => {
-    const searchInventory = async () => {
-      if (!debouncedSearchQuery.trim()) {
-        setSearchResults([]);
-        setLoading(false);
-        return;
-      }
-
+    const fetchInitialData = async () => {
       try {
         setLoading(true);
-        const data = await storeService.searchInventory(debouncedSearchQuery);
+        console.log('Fetching store and inventory data...');
         
-        // Debug: Log the full API response to see structure
-        console.log('API Response:', JSON.stringify(data, null, 2));
+        // Fetch store data and inventory in parallel
+        const [storeResponse, inventoryResponse] = await Promise.all([
+          storeService.getStore(),
+          storeService.getInventory()
+        ]);
         
-        // Handle different API response structures
+        console.log('Store response:', storeResponse);
+        console.log('Inventory response:', inventoryResponse);
+        
+        // Set store data
+        const store = storeResponse?.data || storeResponse;
+        setStoreData(store);
+        
+        // Handle different API response structures for inventory
         let items = [];
+        const data = inventoryResponse;
         
-        // Try various possible data paths
+        // Log the structure to understand response format
+        console.log('Inventory data structure:', JSON.stringify(data, null, 2).substring(0, 500));
+        
         if (data?.data?.data?.inventory) {
           items = data.data.data.inventory;
+          console.log('Found items at: data.data.data.inventory');
         } else if (data?.data?.inventory) {
           items = data.data.inventory;
+          console.log('Found items at: data.data.inventory');
         } else if (data?.data?.products) {
           items = data.data.products;
+          console.log('Found items at: data.data.products');
         } else if (data?.data?.items) {
           items = data.data.items;
+          console.log('Found items at: data.data.items');
         } else if (data?.inventory) {
           items = data.inventory;
+          console.log('Found items at: data.inventory');
         } else if (data?.products) {
           items = data.products;
+          console.log('Found items at: data.products');
         } else if (data?.items) {
           items = data.items;
+          console.log('Found items at: data.items');
         } else if (data?.data && Array.isArray(data.data)) {
           items = data.data;
+          console.log('Found items at: data.data (array)');
         } else if (Array.isArray(data)) {
           items = data;
+          console.log('Found items at: root (array)');
+        } else {
+          console.log('Could not find inventory items in response');
         }
         
-        console.log('Extracted items:', items);
-        
-        setSearchResults(Array.isArray(items) ? items.slice(0, 10) : []);
+        console.log('Loaded inventory items:', items.length, items.slice(0, 2));
+        setAllInventory(Array.isArray(items) ? items : []);
         setError(null);
       } catch (err) {
-        console.error('Failed to search inventory:', err);
-        setError('Failed to search products');
-        setSearchResults([]);
+        console.error('Failed to fetch initial data:', err);
+        setError('Failed to load products');
       } finally {
         setLoading(false);
       }
     };
+    
+    fetchInitialData();
+  }, []);
 
-    searchInventory();
-  }, [debouncedSearchQuery]);
-
-  // Use search results directly (server-side filtering)
-  const filteredMedications = searchResults;
+  // Filter inventory locally based on search query (instant search)
+  const filteredMedications = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return [];
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    return allInventory
+      .filter(item => {
+        const name = (item.drug_name || item.generic_name || item.brand_name || item.name || '').toLowerCase();
+        const brand = (item.brand_name || '').toLowerCase();
+        const category = (item.category || item.type || '').toLowerCase();
+        
+        return name.includes(query) || brand.includes(query) || category.includes(query);
+      })
+      .slice(0, 15); // Limit to 15 results for performance
+  }, [searchQuery, allInventory]);
 
   // Check if item is in cart
   const isInCart = (medId) => {
@@ -221,32 +236,54 @@ const SearchPage = ({ onNext, onBack }) => {
   };
 
   return (
-    <div className="min-vh-100 pb-5" style={{ paddingBottom: (getCartCount() > 0 || prescription) ? '120px' : '2rem' }}>
+    <div className="h-100 pb-3" style={{ paddingBottom: (getCartCount() > 0 || prescription) ? '100px' : '1rem' }}>
       <div className="container py-3 py-md-4" style={{ maxWidth: '1200px' }}>
-        {/* Progress Indicator */}
-        <div className="mb-4">
-          <div className="d-flex align-items-center justify-content-between mb-2">
-            <button className="btn btn-link text-muted d-flex align-items-center gap-2 p-0" onClick={onBack}>
-              <ArrowLeft size={20} />
-              <span className="d-none d-sm-inline">Back</span>
-            </button>
-            <span className="small text-muted">Step 1 of 3</span>
-          </div>
-          <div className="progress" style={{ height: '6px' }}>
-            <div className="progress-bar" role="progressbar" style={{ width: '33%', background: '#00B17B' }}></div>
-          </div>
-        </div>
-
-        {/* Header */}
+        {/* Header / Pharmacy Branding */}
         <div className="text-center mb-4">
+          {/* Pharmacy Logo/Icon */}
           <div 
-            className="d-inline-flex align-items-center justify-content-center rounded-3 mb-3 text-white"
-            style={{ width: '56px', height: '56px', background: '#00B17B' }}
+            className="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+            style={{ 
+              width: '80px', 
+              height: '80px', 
+              background: 'linear-gradient(135deg, #00B17B 0%, #00d492 100%)',
+              boxShadow: '0 4px 20px rgba(0, 177, 123, 0.3)'
+            }}
           >
-            <Package size={28} />
+            <Package size={40} color="white" />
           </div>
-          <h1 className="h2 fw-bold mb-2" style={{ color: '#00B17B' }}>Browse Products</h1>
-          <p className="text-muted">Search for medications or upload your prescription</p>
+          
+          {/* Pharmacy Name */}
+          <h1 className="h3 fw-bold mb-1" style={{ color: '#1a1a2e' }}>
+            {storeData?.StoreName || storeData?.storeName || 'Pharmacy'}
+          </h1>
+          
+          {/* Location (if available) */}
+          {storeData?.address && (
+            <p className="text-muted small mb-2 d-flex align-items-center justify-content-center gap-1">
+              <MapPin size={14} />
+              {storeData.address}
+            </p>
+          )}
+          
+          {/* Welcome Message */}
+          <div 
+            className="mt-3 p-3 rounded-3 mx-auto"
+            style={{ 
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #e6f7f1 100%)',
+              maxWidth: '500px'
+            }}
+          >
+            <p className="mb-1 fw-medium" style={{ color: '#00B17B' }}>
+              👋 Welcome! Ready to place your order?
+            </p>
+            <p className="text-muted small mb-0">
+              {loading 
+                ? 'Loading products...' 
+                : `${allInventory.length} products available • Search or upload prescription`
+              }
+            </p>
+          </div>
         </div>
 
         {/* Search and Upload Section */}
@@ -256,12 +293,16 @@ const SearchPage = ({ onNext, onBack }) => {
               <div className="position-relative">
                 <div className="input-group input-group-lg">
                   <span className="input-group-text bg-white border-end-0">
-                    <Search className="text-muted" size={20} />
+                    {loading ? (
+                      <Loader2 size={20} className="text-muted" style={{ animation: 'spin 1s linear infinite' }} />
+                    ) : (
+                      <Search className="text-muted" size={20} />
+                    )}
                   </span>
                   <input
                     type="text"
                     className="form-control border-start-0"
-                    placeholder="Search for medications..."
+                    placeholder={loading ? "Loading products..." : "Search for medications..."}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -291,18 +332,7 @@ const SearchPage = ({ onNext, onBack }) => {
                       borderTop: 'none',
                     }}
                   >
-                    {loading ? (
-                      <div className="p-4 text-center">
-                        <Loader2 size={24} style={{ color: '#00B17B', animation: 'spin 1s linear infinite' }} />
-                        <p className="text-muted small mb-0 mt-2">Loading products...</p>
-                        <style>{`
-                          @keyframes spin {
-                            from { transform: rotate(0deg); }
-                            to { transform: rotate(360deg); }
-                          }
-                        `}</style>
-                      </div>
-                    ) : filteredMedications.length > 0 ? (
+                    {filteredMedications.length > 0 ? (
                       <>
                         <div className="px-3 py-2 bg-light border-bottom">
                           <small className="text-muted fw-medium">
@@ -432,11 +462,10 @@ const SearchPage = ({ onNext, onBack }) => {
                   type="button"
                   className="btn d-flex align-items-center justify-content-center gap-2 flex-grow-1"
                   style={{ 
-                    borderColor: '#00B17B', 
                     color: '#00B17B', 
                     height: '48px',
-                    background: 'white',
-                    border: '1px solid #00B17B'
+                    background: '#FFFDFA',
+                    border: 'none'
                   }}
                   onClick={() => fileInputRef.current?.click()}
                 >
