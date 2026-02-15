@@ -51,8 +51,8 @@ function App() {
 
   return (
     <CartProvider>
-      <div className="h-screen flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-auto">
+      <div className="min-h-screen">
+        <main>
           {renderPage()}
         </main>
       </div>
